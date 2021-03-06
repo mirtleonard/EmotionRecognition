@@ -58,7 +58,7 @@ def get_features(sig, sr, sigtype):
     return features
 
 
-def get_data_rolling(segments, n, labeltype, majority, pos_label):
+def get_data_rolling(segments, n, labeltype, majority):
     X, y = {}, {}
 
     # for each participant
@@ -106,10 +106,7 @@ def get_data_rolling(segments, n, labeltype, majority, pos_label):
                 a_val, v_val = curr_a[-1], curr_v[-1]
 
             curr_X.append(features)
-            if pos_label == 'high':
-                curr_y.append([int(a_val > 2), int(v_val > 2)])
-            else:
-                curr_y.append([int(a_val <= 2), int(v_val <= 2)])
+            curr_y.append([int(a_val > 2), int(v_val > 2)])
 
         # stack features for current participant and apply standardization
         X[pid] = StandardScaler().fit_transform(np.stack(curr_X))
@@ -118,7 +115,7 @@ def get_data_rolling(segments, n, labeltype, majority, pos_label):
     return X, y
 
 
-def get_data_discrete(segments, n, labeltype, majority, pos_label):
+def get_data_discrete(segments, n, labeltype, majority):
     X, y = {}, {}
 
     # for each participant
@@ -178,10 +175,7 @@ def get_data_discrete(segments, n, labeltype, majority, pos_label):
                     v_val = curr_segs.pop('v')[-1]
                 
                 curr_X.append(features)
-                if pos_label == 'high':
-                    curr_y.append([int(a_val > 2), int(v_val > 2)])
-                else:
-                    curr_y.append([int(a_val <= 2), int(v_val <= 2)])
+                curr_y.append([int(a_val > 2), int(v_val > 2)])
 
                 pbar.set_postfix({'processed': idx // n})
 
@@ -192,52 +186,54 @@ def get_data_discrete(segments, n, labeltype, majority, pos_label):
     return X, y
 
 
-def prepare_kemocon(segments_dir, n, labeltype, majority, rolling, pos_label):
+def prepare_kemocon(segments_dir, n, labeltype, majority, rolling):
     # load segments
     pid_to_segments = load_segments(segments_dir)
 
     # extract features and labels
     if rolling:
-        X, y = get_data_rolling(pid_to_segments, n, labeltype, majority, pos_label)
+        X, y = get_data_rolling(pid_to_segments, n, labeltype, majority)
     else:
-        X, y = get_data_discrete(pid_to_segments, n, labeltype, majority, pos_label)
+        X, y = get_data_discrete(pid_to_segments, n, labeltype, majority)
 
     return X, y
 
 
-def get_results(y_test, preds, probs):
+# deprecated auroc and ap for compatibility with multiclass classification
+def get_results(y_test, preds, probs=None):
     acc = accuracy_score(y_test, preds)
-    bacc = balanced_accuracy_score(y_test, preds, adjusted=False)
+    # bacc = balanced_accuracy_score(y_test, preds, adjusted=False)
     f1 = f1_score(y_test, preds, average='weighted')
-    auroc = roc_auc_score(y_test, probs, average='weighted')
-    ap = average_precision_score(y_test, probs, average='weighted')
+    # auroc = roc_auc_score(y_test, probs, average='weighted')
+    # ap = average_precision_score(y_test, probs, average='weighted')
 
-    return {'acc.': acc, 'bacc.': bacc, 'f1': f1, 'auroc': auroc, 'ap': ap}
+    # return {'acc.': acc, 'bacc.': bacc, 'f1': f1, 'auroc': auroc, 'ap': ap}
+    return {'acc.': acc, 'f1': f1}
 
 
 def pred_majority(majority, y_test):
     preds = np.repeat(majority, y_test.size)
-    probs = np.repeat(majority, y_test.size)
-    return get_results(y_test, preds, probs)
+    # probs = np.repeat(majority, y_test.size)
+    return get_results(y_test, preds)
 
 
-def pred_random(y_classes, y_test, rng, ratios=None):
+def pred_random(y_classes, y_test, rng, ratios):
     preds = rng.choice(y_classes, y_test.size, replace=True, p=ratios)
-    if ratios is not None:
-        probs = np.where(preds == 1, ratios[1], ratios[0])
-    else:
-        probs = np.repeat(0.5, y_test.size)
-    return get_results(y_test, preds, probs)
+    # if ratios is not None:
+    #     probs = np.where(preds == 1, ratios[1], ratios[0])
+    # else:
+    #     probs = np.repeat(0.5, y_test.size)
+    return get_results(y_test, preds)
 
 
 def pred_gnb(X_train, y_train, X_test, y_test):
     clf = GaussianNB().fit(X_train, y_train)
     preds = clf.predict(X_test)
-    probs = clf.predict_proba(X_test)[:, 1]
-    return get_results(y_test, preds, probs)
+    # probs = clf.predict_proba(X_test)[:, 1]
+    return get_results(y_test, preds)
 
 
-def pred_xgb(X_train, y_train, X_test, y_test, seed, gpu):
+def pred_xgb(X_train, y_train, X_test, y_test, seed, gpu, target):
     # load data into DMatrix
     dtrain = xgb.DMatrix(X_train, label=y_train)
     dtest = xgb.DMatrix(X_test, label=y_test)
@@ -248,9 +244,9 @@ def pred_xgb(X_train, y_train, X_test, y_test, seed, gpu):
         'verbosity': 1,
         'max_depth': 6,
         'eta': 0.3,
-        'objective': 'binary:logistic',
-        # 'num_class': 2,
-        'eval_metric': 'auc',
+        'objective': 'multi:softmax',
+        'eval_metric': 'mlogloss' if target == 'multiclass' else 'logloss',
+        'num_class': 4 if target == 'multiclass' else 2,
         'seed': seed,
     }
 
@@ -262,11 +258,10 @@ def pred_xgb(X_train, y_train, X_test, y_test, seed, gpu):
     # train model and predict
     num_round = 100
     bst = xgb.train(params, dtrain, num_round)
-    probs = bst.predict(dtest)
-    preds = probs > 0.5
+    preds = bst.predict(dtest)
     
     # return results
-    return get_results(y_test, preds, probs)
+    return get_results(y_test, preds)
 
 
 def get_baseline_kfold(X, y, seed, target, n_splits, shuffle, gpu):
@@ -284,22 +279,27 @@ def get_baseline_kfold(X, y, seed, target, n_splits, shuffle, gpu):
         y = y[:, 0]
     elif target == 'valence':
         y = y[:, 1]
+    elif target == 'multiclass':
+        classes = np.unique(y, axis=0).tolist()
+        y = np.fromiter(map(lambda x: classes.index(x.tolist()), y), dtype=np.int)
 
     results = {}
     # for each fold, split train & test and get classification results
     for i, (train_idx, test_idx) in enumerate(skf.split(X, y)):
         X_train, X_test = X[train_idx], X[test_idx]
         y_train, y_test = y[train_idx], y[test_idx]
+
         y_classes, y_counts = np.unique(y_train, return_counts=True)
         majority = y_classes[np.argmax(y_counts)]
         class_ratios = y_counts / y_train.size
+        n_classes = len(y_classes)
 
         results[i+1] = {
-            'Random': pred_random(y_classes, y_test, rng),
+            'Random': pred_random(y_classes, y_test, rng, ratios=np.repeat(1/n_classes, n_classes)),
             'Majority': pred_majority(majority, y_test),
             'Class ratio': pred_random(y_classes, y_test, rng, ratios=class_ratios),
             'Gaussian NB': pred_gnb(X_train, y_train, X_test, y_test),
-            'XGBoost': pred_xgb(X_train, y_train, X_test, y_test, seed, gpu),
+            'XGBoost': pred_xgb(X_train, y_train, X_test, y_test, seed, gpu, target),
         }
 
     # return results as table
@@ -367,17 +367,16 @@ if __name__ == "__main__":
     parser.add_argument('-y', '--label', type=str, default='s', help='type of label to use for classification, must be either "s"=self, "p"=partner, "e"=external, or "sp"=self+partner (default="s")')
     parser.add_argument('--majority', default=False, action='store_true', help='set majority label for segments, default is last')
     parser.add_argument('--rolling', default=False, action='store_true', help='get segments with rolling: e.g., s1=[0:n], s2=[1:n+1], ..., default is no rolling: e.g., s1=[0:n], s2=[n:2n], ...')
-    parser.add_argument('--pos_label', type=str, default='high', help='if "high" high ratings (> 2) will correspond to 1 in labels, else low ratings (<= 2) will correspond to 1 in labels')
     parser.add_argument('--cv', type=str, default='kfold', help='type of cross-validation to perform, must be either "kfold" or "loso"')
-    parser.add_argument('--splits', type=int, default=5, help='number of folds for k-fold stratified classification, default is 5')
+    parser.add_argument('--splits', type=int, default=4, help='number of folds for k-fold stratified classification, default is 5')
     parser.add_argument('--shuffle', default=False, action='store_true', help='shuffle data before splitting to folds, default is no shuffle')
     parser.add_argument('--savedir', type=str, default='../results/', help='path to the directory to save classification results')
     parser.add_argument('--gpu', default=False, action='store_true', help='if True, use available GPU for XGBoost')
     args = parser.parse_args()
 
     # check commandline arguments
-    if args.target not in ['valence', 'arousal']:
-        raise ValueError(f'--target must be either "valence" or "arousal", but given {args.target}')
+    if args.target not in ['valence', 'arousal', 'multiclass']:
+        raise ValueError(f'--target must be either "valence" or "arousal" or "multiclass", but given {args.target}')
     elif args.length < 5:
         raise ValueError(f'--length must be greater than 5')
     elif args.label not in ['s', 'p', 'e', 'sp']:
@@ -396,8 +395,8 @@ if __name__ == "__main__":
 
     # get features and labels
     segments_dir = os.path.expanduser(args.root)
-    logger.info(f'Processing segments from {segments_dir}, with: seed={args.seed}, target={args.target}, length={args.length*5}s, label={args.label}, majority={args.majority}, rolling={args.rolling}, pos_label={args.pos_label}, cv={args.cv}, splits={args.splits}, shuffle={args.shuffle}, gpu={args.gpu}')
-    features, labels = prepare_kemocon(segments_dir, args.length, args.label, args.majority, args.rolling, args.pos_label)
+    logger.info(f'Processing segments from {segments_dir}, with: seed={args.seed}, target={args.target}, length={args.length*5}s, label={args.label}, majority={args.majority}, rolling={args.rolling}, cv={args.cv}, splits={args.splits}, shuffle={args.shuffle}, gpu={args.gpu}')
+    features, labels = prepare_kemocon(segments_dir, args.length, args.label, args.majority, args.rolling)
     logger.info('Processing complete.')
 
     # get classification results
@@ -407,7 +406,11 @@ if __name__ == "__main__":
     if args.cv == 'kfold':
         savefile = f'seed={args.seed}_target={args.target}_len={args.length*5}_label={args.label}_{"majority" if args.majority else "last"}_{"rolling" if args.rolling else "discrete"}_k={args.splits}_{"shuffle" if args.shuffle else "no-shuffle"}.csv'
         savepath = os.path.join(args.savedir, savefile)
-        results.groupby(level='Metric').mean().to_csv(savepath)
-    else:
-        savepath = os.path.join(args.savedir, f'{args.target}-{args.pos_label}-loso.csv')
+        results = results.groupby(level='Metric').mean()
         results.to_csv(savepath)
+    else:
+        savepath = os.path.join(args.savedir, f'{args.target}-loso.csv')
+        results.to_csv(savepath)
+
+    print(results)
+    logger.info(f'Saved results to {savepath}')
