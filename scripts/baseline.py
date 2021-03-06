@@ -368,7 +368,7 @@ if __name__ == "__main__":
     parser.add_argument('--majority', default=False, action='store_true', help='set majority label for segments, default is last')
     parser.add_argument('--rolling', default=False, action='store_true', help='get segments with rolling: e.g., s1=[0:n], s2=[1:n+1], ..., default is no rolling: e.g., s1=[0:n], s2=[n:2n], ...')
     parser.add_argument('--cv', type=str, default='kfold', help='type of cross-validation to perform, must be either "kfold" or "loso"')
-    parser.add_argument('--splits', type=int, default=4, help='number of folds for k-fold stratified classification, default is 5')
+    parser.add_argument('--splits', type=int, default=4, help='number of folds for k-fold stratified classification, default is 4')
     parser.add_argument('--shuffle', default=False, action='store_true', help='shuffle data before splitting to folds, default is no shuffle')
     parser.add_argument('--savedir', type=str, default='../results/', help='path to the directory to save classification results')
     parser.add_argument('--gpu', default=False, action='store_true', help='if True, use available GPU for XGBoost')
