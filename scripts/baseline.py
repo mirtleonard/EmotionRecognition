@@ -141,8 +141,8 @@ def get_data_discrete(segments, n, labeltype, majority):
                 curr_segs.setdefault('a', []).append(e_a)
                 curr_segs.setdefault('v', []).append(e_v)
             elif labeltype == 'sp':
-                curr_segs.setdefault('a', []).append(np.mean([s_a, p_a]))
-                curr_segs.setdefault('v', []).append(np.mean([s_v, p_v]))
+                curr_segs.setdefault('a', []).append(np.sum([s_a, p_a]))
+                curr_segs.setdefault('v', []).append(np.sum([s_v, p_v]))
 
             # get signals and add to buffer
             for sigtype, sr in [('bvp', 64), ('eda', 4), ('temp', 4), ('ecg', 1)]:
@@ -175,7 +175,10 @@ def get_data_discrete(segments, n, labeltype, majority):
                     v_val = curr_segs.pop('v')[-1]
                 
                 curr_X.append(features)
-                curr_y.append([int(a_val > 2), int(v_val > 2)])
+                if labeltype != 'sp':
+                    curr_y.append([int(a_val > 2), int(v_val > 2)])
+                else:
+                    curr_y.append([int(a_val > 5), int(v_val > 5)])
 
                 pbar.set_postfix({'processed': idx // n})
 
