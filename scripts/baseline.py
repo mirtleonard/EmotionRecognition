@@ -92,8 +92,8 @@ def get_data_rolling(segments, n, labeltype, majority):
                 curr_a = [int(labels[4]) for _, _, labels in curr_segs]
                 curr_v = [int(labels[5]) for _, _, labels in curr_segs]
             elif labeltype == 'sp':
-                curr_a = [np.mean([int(labels[0]), int(labels[2])]) for _, _, labels in curr_segs]
-                curr_v = [np.mean([int(labels[1]), int(labels[3])]) for _, _, labels in curr_segs]
+                curr_a = [np.sum([int(labels[0]), int(labels[2])]) for _, _, labels in curr_segs]
+                curr_v = [np.sum([int(labels[1]), int(labels[3])]) for _, _, labels in curr_segs]
             
             # take majority label
             if majority:
@@ -106,7 +106,10 @@ def get_data_rolling(segments, n, labeltype, majority):
                 a_val, v_val = curr_a[-1], curr_v[-1]
 
             curr_X.append(features)
-            curr_y.append([int(a_val > 2), int(v_val > 2)])
+            if labeltype != 'sp':
+                curr_y.append([int(a_val > 2), int(v_val > 2)])
+            else:
+                curr_y.append([int(a_val > 5), int(v_val > 5)])
 
         # stack features for current participant and apply standardization
         X[pid] = StandardScaler().fit_transform(np.stack(curr_X))
