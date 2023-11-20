@@ -24,9 +24,9 @@ def main():
     output_file = args.output_file
     main_title = args.title
 
-    movie = yaml.load(open(args.mo))
-    music = yaml.load(open(args.mu))
-    music_walk = yaml.load(open(args.mw))
+    movie = yaml.load(open(args.mo), Loader = yaml.UnsafeLoader)
+    music = yaml.load(open(args.mu), Loader = yaml.UnsafeLoader)
+    music_walk = yaml.load(open(args.mw), Loader = yaml.UnsafeLoader)
 
     plt.style.use('seaborn-whitegrid')
     plt.figure(dpi=dpi)

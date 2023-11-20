@@ -1,4 +1,5 @@
 import argparse
+import os
 import yaml
 import numpy as np
 from collections import defaultdict
@@ -40,14 +41,20 @@ def main():
 
         if not fnames: 
             return
-        print 'condition', condition
+        print('condition', condition)
 
         results = {'labels':[], 'baseline': defaultdict(list),
                     'logit': defaultdict(list), 
                     'rf': defaultdict(list)}
 
-        for fname in fnames:
-            print 'classifying: %s' % fname
+        input = fnames[0].split('/')
+        fpattern = input[1][:-1]
+        directory = './' + input[0]
+        files = list(filter(lambda x : x.startswith(fpattern), os.listdir(directory)))
+        files = list(map(lambda x : directory + '/' + x, files))
+        print(files)
+        for fname in files:
+            print('classifying: %s' % fname)
             label = fname.split('/')[-1]
 
             data = np.loadtxt(fname, delimiter=',')
@@ -57,7 +64,7 @@ def main():
 
             # acc features + heart rate + y label
             #data = np.hstack([data[:,:51], data[:,-2:]])
-            print data.shape
+            print(data.shape)
 
             if not neutral:
                 # delete neutral to see if we can distinguish between
@@ -75,7 +82,7 @@ def main():
             models = [
                     ('baseline', DummyClassifier(strategy = 'most_frequent')),
                     #('logit', linear_model.LogisticRegressionCV(Cs=20, cv=10)),
-                    ('logit', linear_model.LogisticRegression()),
+                    ('logit', linear_model.LogisticRegression(max_iter=1000)),
                     ('rf', RandomForestClassifier(n_estimators = N_ESTIMATORS)),
                     ]
                     
@@ -96,7 +103,7 @@ def main():
                     _f1 = metrics.f1_score(y_test, y_pred, average='weighted')
                     _acc = metrics.accuracy_score(y_test, y_pred)
                     y_proba = clf.predict_proba(x_test)
-                    _roc_auc = metrics.roc_auc_score(y_test, y_proba[:, 1], average='weighted')
+                    _roc_auc = metrics.roc_auc_score(y_test, y_proba[:, 1], average='weighted', multi_class='ovo')
                     scores['f1'].append(_f1)
                     scores['acc'].append(_acc)
                     scores['roc_auc'].append(_roc_auc)

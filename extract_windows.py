@@ -1,5 +1,6 @@
-import argparse
+import os
 import math
+import argparse
 import numpy as np
 
 from collections import OrderedDict
@@ -121,7 +122,9 @@ def main():
 
     window_size_sec = args.w
     overlap = args.overlap
-    input_files = args.input_files
+    data_dir = args.input_files[0]
+    input_files = list(map(lambda x: data_dir + x, os.listdir(data_dir)))
+    print(input_files)
     output_dir = args.output_dir.strip('/') + '/'
     delimiter = args.delimiter
 
@@ -132,14 +135,14 @@ def main():
 
     for fname in input_files:
         short_name = fname.split('/')[-1]
-        print 'processing ', short_name
+        print('processing ', short_name)
         condition_emotion = np.genfromtxt(fname, skip_header=1, delimiter=delimiter, usecols=(0,1))
-        emotions = map(int, condition_emotion[:,1].tolist())
-
+        emotions = list(map(int, condition_emotion[:,1].tolist()))
         data = np.genfromtxt(fname, skip_header=1, delimiter=delimiter, usecols=range(2, 9))
 
         # get emotions from second column
         emotion_ids = list(OrderedDict.fromkeys(emotions))
+        #print(emotions)
         emo_0 = emotions.index(emotion_ids[0])
         emo_1 = emotions.index(emotion_ids[1])
         emo_2 = emotions.index(emotion_ids[2])
@@ -165,9 +168,9 @@ def main():
         features = np.array(features)
 
         filename = 'features_{}'.format(short_name)
-        print '\tSaving file {}...'.format(filename)
+        print('\tSaving file {}...'.format(filename))
         np.savetxt(output_dir + filename, features, fmt='%f', delimiter=',')
-        print '\tfeatures: ', features.shape
+        print('\tfeatures: ', features.shape)
 
 
 if __name__ == "__main__":

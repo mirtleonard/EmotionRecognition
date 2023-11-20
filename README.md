@@ -44,7 +44,7 @@ python get_walking_data.py user_study_encoding.csv raw_data/ walking_data/
 
 Extract features from sliding windows.
 ```bash
-python extract_windows.py walking_data/m* features/
+python extract_windows.py walking_data/ features/
 ```
 
 Compute classification accuracies of happy vs sad.

@@ -51,21 +51,21 @@ def main():
     args = parser.parse_args()
 
     if args.mo:
-        movie_results = yaml.load(open(args.mo))
-        print '^' * 20
-        print 'Movie'
+        movie_results = yaml.load(open(args.mo), Loader = yaml.UnsafeLoader)
+        print('^' * 20)
+        print('Movie')
         permute(movie_results)
 
     if args.mu:
-        music_results = yaml.load(open(args.mu))
-        print '^' * 20
-        print 'Music'
+        music_results = yaml.load(open(args.mu), Loader = yaml.UnsafeLoader)
+        print('^' * 20)
+        print('Music')
         permute(music_results)
 
     if args.mw:
-        music_walk_results = yaml.load(open(args.mw))
-        print '^' * 20
-        print 'Music + walking'
+        music_walk_results = yaml.load(open(args.mw), Loader = yaml.UnsafeLoader)
+        print('^' * 20)
+        print('Music + walking')
         permute(music_walk_results)
 
 

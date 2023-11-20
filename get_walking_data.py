@@ -46,11 +46,11 @@ def main():
         # find file matching ew id
         fname = glob.glob(input_dir + pid + '_*')
         if len(fname) > 1:
-            print '^^^^ more than one file matched %s ' % pid
+            print('^^^^ more than one file matched %s ' % pid)
             return
         fname = fname[0]
         short_name = fname.split('/')[-1]
-        print 'processing ', short_name
+        print ('processing ', short_name)
 
         # read data from ew file
         time = np.genfromtxt(fname, delimiter=',', dtype=str, usecols=(0), skip_header=2, skip_footer=1)
@@ -68,12 +68,12 @@ def main():
                 index = time.index(time_)
                 indexes.append(index)
             else:
-                print 'invalid index ', short_name, start_stop_time
+                print ('invalid index ', short_name, start_stop_time)
                 break
 
         # check for valid indexes
         if len(indexes) != 6:
-            print 'missing an index ', short_name
+            print ('missing an index ', short_name)
             continue
 
         invalid = False
@@ -83,7 +83,7 @@ def main():
                 break
 
         if invalid:
-            print 'invalid index ', indexes
+            print ('invalid index ', indexes)
             continue
             
         # compile the rows between each start-stop 
