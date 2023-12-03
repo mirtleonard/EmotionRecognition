@@ -1,12 +1,13 @@
 import argparse
 import os
+from pathlib import Path
 import yaml
 import numpy as np
 from collections import defaultdict
+import joblib
 
 from sklearn import linear_model
 from sklearn import metrics
-from sklearn import model_selection
 from sklearn import preprocessing
 from sklearn.dummy import DummyClassifier
 from sklearn.ensemble import RandomForestClassifier
@@ -52,7 +53,6 @@ def main():
         directory = './' + input[0]
         files = list(filter(lambda x : x.startswith(fpattern), os.listdir(directory)))
         files = list(map(lambda x : directory + '/' + x, files))
-        print(files)
         for fname in files:
             print('classifying: %s' % fname)
             label = fname.split('/')[-1]
@@ -78,14 +78,20 @@ def main():
 
             # scaled
             x_data = preprocessing.scale(x_data)
+            new_models = {
+                    'baseline': DummyClassifier(strategy = 'most_frequent'),
+                    'logit': linear_model.LogisticRegression(max_iter=1000),
+                    'rf': RandomForestClassifier(n_estimators = N_ESTIMATORS)
+            }
+            models = [] 
+            for key in new_models.keys():
+                path = 'trained_models/' + key + '.joblib'
+                if Path(path).is_file():
+                    print('loading trained model ' + key)
+                    models.append((key, joblib.load(path)))
+                else: 
+                    models.append((key), new_models[key]) 
 
-            models = [
-                    ('baseline', DummyClassifier(strategy = 'most_frequent')),
-                    #('logit', linear_model.LogisticRegressionCV(Cs=20, cv=10)),
-                    ('logit', linear_model.LogisticRegression(max_iter=1000)),
-                    ('rf', RandomForestClassifier(n_estimators = N_ESTIMATORS)),
-                    ]
-                    
             results['labels'].append(label)
             repeats = 10
             folds = 10
@@ -95,6 +101,7 @@ def main():
 
             for key, clf in models:
                 scores = {'f1':[], 'acc':[], 'roc_auc':[]}
+                '''
                 for i, (train,test) in enumerate(rskf.split(x_data, y_data)):
                     x_train, x_test = x_data[train], x_data[test]
                     y_train, y_test = y_data[train], y_data[test]
@@ -107,16 +114,19 @@ def main():
                     scores['f1'].append(_f1)
                     scores['acc'].append(_acc)
                     scores['roc_auc'].append(_roc_auc)
-
+                ''' 
+                clf.fit(x_data, y_data)
+                joblib.dump(clf, './trained_models/' + key + '.joblib')
                 #results[key] = {'f1': np.mean(scores['f1']), 'acc': np.mean(scores['acc']), 'f1_all': scores['f1'], 'acc_all':scores['acc']}
-                results[key]['f1'].append(np.mean(scores['f1']))
-                results[key]['acc'].append(np.mean(scores['acc']))
-                results[key]['roc_auc'].append(np.mean(scores['roc_auc']))
+                #results[key]['f1'].append(np.mean(scores['f1']))
+                #results[key]['acc'].append(np.mean(scores['acc']))
+                #print(np.mean(scores['acc']))
+                #results[key]['roc_auc'].append(np.mean(scores['roc_auc']))
 
         #for key, model in models:
         #    print key, np.mean(results[key]), np.std(results[key])
 
-        yaml.dump(results, open(condition+'_lift_scores_'+output_file+'.yaml', 'w'))
+        #yaml.dump(results, open(condition+'_lift_scores_'+output_file+'.yaml', 'w'))
 
     # end of function
     #-------------

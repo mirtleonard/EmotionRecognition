@@ -86,12 +86,10 @@ def extract_features(window):
 
     # total = 102
 
-    ##angle - 3
     x = window[:, 0]
     y = window[:, 1]
     z = window[:, 2]
 
-    # 51 + 3
 
     vector = np.array([np.mean(x), np.mean(y), np.mean(z)])
     angle_wrt_xaxis = angle_between_vectors(vector, np.array([1, 0, 0]))
@@ -102,9 +100,6 @@ def extract_features(window):
     ## magnitude - std - 1
     magnitude = np.sqrt(x**2 + y**2 + z**2)
     features.append(np.std(magnitude))
-
-    # (17*3) + (17*3) + 3 + 1 + 1 (hr) = 107
-    # + y label = 108
 
     features.append(heart_rate[0])
 
@@ -142,7 +137,6 @@ def main():
 
         # get emotions from second column
         emotion_ids = list(OrderedDict.fromkeys(emotions))
-        #print(emotions)
         emo_0 = emotions.index(emotion_ids[0])
         emo_1 = emotions.index(emotion_ids[1])
         emo_2 = emotions.index(emotion_ids[2])
@@ -158,7 +152,6 @@ def main():
             i = fstart
             while i+window_size < fend:
                 window = data[i:i+window_size]
-
                 f_vector = extract_features(window)
                 f_vector.append(label)
                 features.append(f_vector)
